@@ -146,7 +146,8 @@ export class GitService {
      * This shows what has changed since that commit
      */
     async getDiffFromCommit(commitHash: string): Promise<string> {
-        return await this.execGit(`diff ${commitHash}..HEAD`);
+        // Diff against working tree to ensure line numbers match editor content
+        return await this.execGit(`diff ${commitHash}`);
     }
 
     /**
