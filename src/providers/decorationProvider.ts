@@ -1,6 +1,6 @@
 /**
  * Decoration Provider - Handles visual highlighting of diff changes
- * GitHub-style diff view: red for deleted, green for added
+ * Git-style diff view: red blocks for deleted lines, green blocks for added lines
  */
 
 import * as vscode from 'vscode';
@@ -12,15 +12,14 @@ export class DecorationProvider implements vscode.Disposable {
 
     // Decoration types for different change types
     private addedLineDecoration: vscode.TextEditorDecorationType;
-    private deletedLineDecoration: vscode.TextEditorDecorationType;
 
     // For modifications: show new content with green background
     private modifiedNewLineDecoration: vscode.TextEditorDecorationType;
 
-    // Ghost decoration for showing deleted content as inline annotation
-    private deletedGhostDecoration: vscode.TextEditorDecorationType;
+    // For deleted content block (rendered above the change)
+    private deletedBlockDecoration: vscode.TextEditorDecorationType;
 
-    // Gutter decorations (only green and red)
+    // Gutter decorations
     private addedGutterDecoration: vscode.TextEditorDecorationType;
     private deletedGutterDecoration: vscode.TextEditorDecorationType;
 
@@ -32,7 +31,8 @@ export class DecorationProvider implements vscode.Disposable {
         // Get colors from configuration
         const config = this.getConfig();
 
-        // Create decoration types - Added lines (pure green background)
+        // Create decoration types
+        // 1. Added lines (pure green background)
         this.addedLineDecoration = vscode.window.createTextEditorDecorationType({
             backgroundColor: config.highlightColors.added,
             isWholeLine: true,
@@ -40,15 +40,7 @@ export class DecorationProvider implements vscode.Disposable {
             overviewRulerLane: vscode.OverviewRulerLane.Left
         });
 
-        // Deleted lines indicator (red background for the gutter area indicator)
-        this.deletedLineDecoration = vscode.window.createTextEditorDecorationType({
-            backgroundColor: config.highlightColors.deleted,
-            isWholeLine: true,
-            overviewRulerColor: 'rgba(248, 81, 73, 0.8)',
-            overviewRulerLane: vscode.OverviewRulerLane.Left
-        });
-
-        // Modified new content (green background - same as added)
+        // 2. Modified new content (green background - same as added)
         this.modifiedNewLineDecoration = vscode.window.createTextEditorDecorationType({
             backgroundColor: config.highlightColors.added,
             isWholeLine: true,
@@ -56,15 +48,26 @@ export class DecorationProvider implements vscode.Disposable {
             overviewRulerLane: vscode.OverviewRulerLane.Left
         });
 
-        // Ghost decoration - shows at end of line with deleted content indicator
-        this.deletedGhostDecoration = vscode.window.createTextEditorDecorationType({
-            after: {
-                color: 'rgba(248, 81, 73, 1)',
-                fontStyle: 'italic'
+        // 3. Deleted block decoration
+        // This attaches to the START of the change block and renders the deleted content
+        // as a block element ABOVE the current line.
+        // We use 'before' with formatted content string.
+        this.deletedBlockDecoration = vscode.window.createTextEditorDecorationType({
+            isWholeLine: true,
+            before: {
+                backgroundColor: config.highlightColors.deleted,
+                color: 'rgba(200, 200, 200, 0.7)', // Faded text for deleted content
+
+                // Important: rendering properties to make it look like code block
+                fontStyle: 'normal',
+                fontWeight: 'normal',
+                textDecoration: 'none',
+
+                // ensure it takes full width if possible (though limited by VSCode API)
             }
         });
 
-        // Gutter icons - only green and red
+        // Gutter icons
         this.addedGutterDecoration = vscode.window.createTextEditorDecorationType({
             gutterIconPath: this.createGutterIconUri('green'),
             gutterIconSize: 'contain'
@@ -75,7 +78,7 @@ export class DecorationProvider implements vscode.Disposable {
             gutterIconSize: 'contain'
         });
 
-        // Listen for session events
+        // Listen for events
         this.sessionManager.on('changeUpdated', () => this.refreshAllEditors());
         this.sessionManager.on('sessionEnded', () => this.clearAllDecorations());
         this.sessionManager.on('sessionRestored', () => this.refreshAllEditors());
@@ -95,48 +98,31 @@ export class DecorationProvider implements vscode.Disposable {
                     e => e.document === event.document
                 );
                 if (editor) {
-                    // Debounce decoration refresh
                     setTimeout(() => this.applyDecorations(editor), 100);
                 }
             })
         );
     }
 
-    /**
-     * Get extension configuration
-     */
     private getConfig(): ExtensionConfig {
         const config = vscode.workspace.getConfiguration('commitDiffReviewer');
         return {
             maxCommitsInList: config.get('maxCommitsInList', 20),
             highlightColors: config.get('highlightColors', {
-                added: 'rgba(46, 160, 67, 0.25)',
-                deleted: 'rgba(248, 81, 73, 0.25)',
-                modified: 'rgba(210, 153, 34, 0.25)'
+                added: 'rgba(46, 160, 67, 0.2)',
+                deleted: 'rgba(248, 81, 73, 0.2)', // Red background
+                modified: 'rgba(210, 153, 34, 0.2)'
             })
         };
     }
 
-    /**
-     * Create a data URI for gutter icon
-     */
     private createGutterIconUri(color: string): vscode.Uri {
-        const colorMap: Record<string, string> = {
-            'green': '#2ea043',
-            'red': '#f85149'
-        };
-
+        const colorMap: Record<string, string> = { 'green': '#2ea043', 'red': '#f85149' };
         const svgColor = colorMap[color] || color;
-        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="6" height="16">
-            <rect width="6" height="16" fill="${svgColor}"/>
-        </svg>`;
-
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="6" height="16"><rect width="6" height="16" fill="${svgColor}"/></svg>`;
         return vscode.Uri.parse(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
     }
 
-    /**
-     * Apply decorations to an editor
-     */
     applyDecorations(editor: vscode.TextEditor): void {
         if (!this.sessionManager.hasActiveSession()) {
             this.clearDecorations(editor);
@@ -148,246 +134,147 @@ export class DecorationProvider implements vscode.Disposable {
 
         const addedRanges: vscode.DecorationOptions[] = [];
         const modifiedNewRanges: vscode.DecorationOptions[] = [];
-        const ghostRanges: vscode.DecorationOptions[] = [];
-
+        const deletedBlockRanges: vscode.DecorationOptions[] = [];
         const addedGutterRanges: vscode.DecorationOptions[] = [];
         const deletedGutterRanges: vscode.DecorationOptions[] = [];
 
         for (const change of changes) {
             switch (change.type) {
                 case 'add':
-                    // Pure addition - green background
                     this.addDecorationRanges(change, editor.document, addedRanges, addedGutterRanges);
                     break;
 
                 case 'delete':
-                    // Pure deletion - show at the line where content was deleted
-                    if (change.oldContent.length > 0) {
-                        const deleteLine = Math.max(0, change.newLineStart - 1);
-                        const safeLine = Math.min(deleteLine, editor.document.lineCount - 1);
-                        const lineText = editor.document.lineAt(safeLine).text;
-
-                        // Show deletion indicator at end of the line
-                        const deletedPreview = change.oldContent.length === 1
-                            ? change.oldContent[0].substring(0, 50) + (change.oldContent[0].length > 50 ? '...' : '')
-                            : `${change.oldContent.length} lines`;
-
-                        ghostRanges.push({
-                            range: new vscode.Range(safeLine, lineText.length, safeLine, lineText.length),
-                            renderOptions: {
-                                after: {
-                                    contentText: `  ⊖ deleted: ${deletedPreview}`,
-                                    color: 'rgba(248, 81, 73, 0.9)',
-                                    backgroundColor: 'rgba(248, 81, 73, 0.15)',
-                                    fontStyle: 'italic',
-                                    border: '1px solid rgba(248, 81, 73, 0.3)',
-                                    margin: '0 0 0 10px'
-                                }
-                            },
-                            hoverMessage: this.createDeletedContentHover(change.oldContent)
-                        });
-
-                        deletedGutterRanges.push({
-                            range: new vscode.Range(safeLine, 0, safeLine, 0)
-                        });
-                    }
+                    // Pure deletion: Attach "before" decoration to the line WHERE it should have been.
+                    // If at end of file, attach to last line.
+                    this.addDeletedBlockDecoration(change, editor.document, deletedBlockRanges, deletedGutterRanges);
                     break;
 
                 case 'modify':
-                    // Modification - show new content with green + indicator for old content
-                    this.addModificationDecorations(
-                        change,
-                        editor.document,
-                        modifiedNewRanges,
-                        ghostRanges,
-                        addedGutterRanges,
-                        deletedGutterRanges
-                    );
+                    // Modification: Deleted block ABOVE, New content usage existing lines.
+                    this.addDeletedBlockDecoration(change, editor.document, deletedBlockRanges, deletedGutterRanges);
+                    this.addModificationNewRanges(change, editor.document, modifiedNewRanges, addedGutterRanges);
                     break;
             }
         }
 
-        // Apply all decorations
         editor.setDecorations(this.addedLineDecoration, addedRanges);
         editor.setDecorations(this.modifiedNewLineDecoration, modifiedNewRanges);
-        editor.setDecorations(this.deletedGhostDecoration, ghostRanges);
-
+        editor.setDecorations(this.deletedBlockDecoration, deletedBlockRanges);
         editor.setDecorations(this.addedGutterDecoration, addedGutterRanges);
         editor.setDecorations(this.deletedGutterDecoration, deletedGutterRanges);
     }
 
-    /**
-     * Add decoration ranges for added lines
-     */
     private addDecorationRanges(
         change: DiffChange,
         document: vscode.TextDocument,
-        mainRanges: vscode.DecorationOptions[],
+        ranges: vscode.DecorationOptions[],
         gutterRanges: vscode.DecorationOptions[]
     ): void {
         const startLine = change.newLineStart - 1;
         const endLine = startLine + change.newLineCount;
 
-        for (let lineNum = startLine; lineNum < endLine && lineNum < document.lineCount; lineNum++) {
-            const line = document.lineAt(lineNum);
-            mainRanges.push({
-                range: line.range,
-                hoverMessage: new vscode.MarkdownString('**➕ Added line**')
-            });
-            gutterRanges.push({
-                range: new vscode.Range(lineNum, 0, lineNum, 0)
-            });
+        for (let i = startLine; i < endLine && i < document.lineCount; i++) {
+            const range = document.lineAt(i).range;
+            ranges.push({ range });
+            gutterRanges.push({ range: new vscode.Range(i, 0, i, 0) });
         }
     }
 
-    /**
-     * Add decorations for modified lines (GitHub-style: red indicator + green for new)
-     */
-    private addModificationDecorations(
+    // Handles the "Green" part of a modification
+    private addModificationNewRanges(
         change: DiffChange,
         document: vscode.TextDocument,
-        newLineRanges: vscode.DecorationOptions[],
-        ghostRanges: vscode.DecorationOptions[],
-        addedGutterRanges: vscode.DecorationOptions[],
-        deletedGutterRanges: vscode.DecorationOptions[]
+        ranges: vscode.DecorationOptions[],
+        gutterRanges: vscode.DecorationOptions[]
     ): void {
         const startLine = change.newLineStart - 1;
         const endLine = startLine + change.newLineCount;
 
-        // Show new content with green background
-        for (let lineNum = startLine; lineNum < endLine && lineNum < document.lineCount; lineNum++) {
-            const line = document.lineAt(lineNum);
-            const isFirstLine = lineNum === startLine;
-
-            // For the first modified line, add the deleted content indicator at the end
-            if (isFirstLine && change.oldContent.length > 0) {
-                const oldPreview = change.oldContent.length === 1
-                    ? change.oldContent[0].substring(0, 40) + (change.oldContent[0].length > 40 ? '...' : '')
-                    : `${change.oldContent.length} lines changed`;
-
-                ghostRanges.push({
-                    range: new vscode.Range(lineNum, line.text.length, lineNum, line.text.length),
-                    renderOptions: {
-                        after: {
-                            contentText: `  ⊖ was: ${oldPreview}`,
-                            color: 'rgba(248, 81, 73, 0.9)',
-                            backgroundColor: 'rgba(248, 81, 73, 0.15)',
-                            fontStyle: 'italic',
-                            border: '1px solid rgba(248, 81, 73, 0.3)',
-                            margin: '0 0 0 10px'
-                        }
-                    },
-                    hoverMessage: this.createModificationHover(change)
-                });
-
-                // Add red gutter for first line to indicate something was removed
-                deletedGutterRanges.push({
-                    range: new vscode.Range(lineNum, 0, lineNum, 0)
-                });
-            }
-
-            newLineRanges.push({
-                range: line.range,
-                hoverMessage: this.createModificationHover(change)
-            });
-
-            // Green gutter for all lines
-            addedGutterRanges.push({
-                range: new vscode.Range(lineNum, 0, lineNum, 0)
-            });
+        for (let i = startLine; i < endLine && i < document.lineCount; i++) {
+            const range = document.lineAt(i).range;
+            ranges.push({ range });
+            gutterRanges.push({ range: new vscode.Range(i, 0, i, 0) });
         }
     }
 
-    /**
-     * Create hover message showing deleted content
-     */
-    private createDeletedContentHover(oldContent: string[]): vscode.MarkdownString {
-        const hover = new vscode.MarkdownString();
-        hover.appendMarkdown('**🔴 Deleted content:**\n\n');
-        hover.appendCodeblock(oldContent.join('\n'), 'text');
-        return hover;
+    // Handles the "Red" part (deleted content) by injecting a block visual
+    private addDeletedBlockDecoration(
+        change: DiffChange,
+        document: vscode.TextDocument,
+        ranges: vscode.DecorationOptions[],
+        gutterRanges: vscode.DecorationOptions[]
+    ): void {
+        if (!change.oldContent || change.oldContent.length === 0) return;
+
+        // Target line to attach the "before" decoration
+        let targetLineIndex = change.newLineStart - 1;
+
+        // Safety check boundaries
+        if (targetLineIndex < 0) targetLineIndex = 0;
+        if (targetLineIndex >= document.lineCount) targetLineIndex = document.lineCount - 1;
+
+        const targetLine = document.lineAt(targetLineIndex);
+
+        // Format old content: Prefix with '-' to mimic git diff
+        const deletedText = change.oldContent.map(line => `- ${line}`).join('\n') + '\n';
+        const lineCount = change.oldContent.length;
+
+        // Create the decoration option
+        ranges.push({
+            range: new vscode.Range(targetLineIndex, 0, targetLineIndex, 0), // Start of the line
+            renderOptions: {
+                before: {
+                    contentText: deletedText,
+                    // Use CSS to ensure it renders as a block and preserves whitespace
+                    // VSCode extension allow some limited styling.
+                    // Important: `white-space: pre` to preserve formatting of standard code
+                    // `display: block` to force it to take up space (works in some contexts)
+                    // Note: decoration 'before' is technically inline-block by default.
+
+                    // We attempt to simulate block via newlines in contentText.
+                    color: 'rgba(255, 255, 255, 0.5)', // Distinct text color
+                    backgroundColor: 'rgba(200, 50, 50, 0.3)', // Red background for the block
+                    margin: '0 0 5px 0',
+                    fontStyle: 'normal'
+                }
+            }
+        });
+
+        // Add red gutter indication
+        // Since we can't easily expand gutter height for virtual lines, 
+        // we attach the red gutter to the same anchor line, potentially overlapping or side-by-side.
+        // Or we prioritize the green gutter if it's a modification.
+        // Let's rely on the red block background for visibility.
     }
 
-    /**
-     * Create hover message for modification
-     */
-    private createModificationHover(change: DiffChange): vscode.MarkdownString {
-        const hover = new vscode.MarkdownString();
-        hover.appendMarkdown('**📝 Modified**\n\n');
-        hover.appendMarkdown('**Before (deleted):**\n');
-        hover.appendCodeblock(change.oldContent.join('\n'), 'text');
-        hover.appendMarkdown('\n**After (current):**\n');
-        hover.appendCodeblock(change.newContent.join('\n'), 'text');
-        return hover;
-    }
-
-    /**
-     * Clear decorations from an editor
-     */
     clearDecorations(editor: vscode.TextEditor): void {
         editor.setDecorations(this.addedLineDecoration, []);
-        editor.setDecorations(this.deletedLineDecoration, []);
         editor.setDecorations(this.modifiedNewLineDecoration, []);
-        editor.setDecorations(this.deletedGhostDecoration, []);
+        editor.setDecorations(this.deletedBlockDecoration, []);
         editor.setDecorations(this.addedGutterDecoration, []);
         editor.setDecorations(this.deletedGutterDecoration, []);
     }
 
-    /**
-     * Clear decorations from all editors
-     */
     clearAllDecorations(): void {
         for (const editor of vscode.window.visibleTextEditors) {
             this.clearDecorations(editor);
         }
     }
 
-    /**
-     * Refresh decorations in all visible editors
-     */
     refreshAllEditors(): void {
         for (const editor of vscode.window.visibleTextEditors) {
             this.applyDecorations(editor);
         }
     }
 
-    /**
-     * Apply decorations to all open editors with changes
-     */
-    async applyDecorationsToAllFiles(): Promise<void> {
-        const changes = this.sessionManager.getAllChanges();
-        const affectedFiles = new Set(changes.map(c => c.filePath));
-
-        for (const filePath of affectedFiles) {
-            try {
-                const uri = vscode.Uri.file(filePath);
-                const document = await vscode.workspace.openTextDocument(uri);
-                const editor = vscode.window.visibleTextEditors.find(
-                    e => e.document === document
-                );
-
-                if (editor) {
-                    this.applyDecorations(editor);
-                }
-            } catch {
-                // File might not exist
-            }
-        }
-    }
-
-    /**
-     * Dispose of resources
-     */
     dispose(): void {
         this.addedLineDecoration.dispose();
-        this.deletedLineDecoration.dispose();
+
         this.modifiedNewLineDecoration.dispose();
-        this.deletedGhostDecoration.dispose();
+        this.deletedBlockDecoration.dispose();
         this.addedGutterDecoration.dispose();
         this.deletedGutterDecoration.dispose();
-
-        for (const disposable of this.disposables) {
-            disposable.dispose();
-        }
+        for (const d of this.disposables) d.dispose();
     }
 }

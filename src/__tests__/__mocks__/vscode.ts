@@ -25,9 +25,10 @@ export const window = {
     showQuickPick: jest.fn(),
     showInputBox: jest.fn(),
     withProgress: jest.fn().mockImplementation((_options, task) => task({ report: jest.fn() })),
-    createTextEditorDecorationType: jest.fn().mockReturnValue({
-        dispose: jest.fn()
-    }),
+    createTextEditorDecorationType: jest.fn().mockImplementation((options) => ({
+        dispose: jest.fn(),
+        key: JSON.stringify(options) // Allow identifying decoration by options
+    })),
     visibleTextEditors: [],
     activeTextEditor: undefined,
     onDidChangeActiveTextEditor: jest.fn(),
