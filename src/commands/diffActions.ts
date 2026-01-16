@@ -44,6 +44,7 @@ export async function acceptChangeById(
     }
 
     // Mark as accepted (no code changes, just update status)
+    sessionManager.setCurrentChange(changeId);
     sessionManager.acceptChange(changeId);
 
     // Refresh decorations
@@ -103,6 +104,7 @@ export async function rejectChangeById(
         await applyRevert(change, gitService);
 
         // Mark as rejected
+        sessionManager.setCurrentChange(changeId);
         sessionManager.rejectChange(changeId);
 
         // Refresh decorations

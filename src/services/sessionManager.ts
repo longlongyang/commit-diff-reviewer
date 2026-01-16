@@ -98,15 +98,17 @@ export class SessionManager extends EventEmitter {
      * Get changes for a specific file
      */
     getChangesForFile(filePath: string): DiffChange[] {
-        return this.session?.changes.filter(c => c.filePath === filePath) || [];
+        const target = filePath.toLowerCase();
+        return this.session?.changes.filter(c => c.filePath.toLowerCase() === target) || [];
     }
 
     /**
      * Get pending changes for a specific file
      */
     getPendingChangesForFile(filePath: string): DiffChange[] {
+        const target = filePath.toLowerCase();
         return this.session?.changes.filter(
-            c => c.filePath === filePath && c.status === 'pending'
+            c => c.filePath.toLowerCase() === target && c.status === 'pending'
         ) || [];
     }
 
@@ -129,6 +131,26 @@ export class SessionManager extends EventEmitter {
      */
     getChangeById(changeId: string): DiffChange | null {
         return this.session?.changes.find(c => c.id === changeId) || null;
+    }
+
+    /**
+     * Set current index to a specific change
+     */
+    setCurrentChange(changeId: string): void {
+        if (!this.session) return;
+
+        // We track index relative to PENDING changes in nextChange/prevChange logic usually?
+        // Wait, session.currentIndex is used in nextChange as:
+        // session.currentIndex = (session.currentIndex + 1) % pending.length
+        // So currentIndex IS the index within the PENDING list.
+
+        const pending = this.getPendingChanges();
+        const index = pending.findIndex(c => c.id === changeId);
+
+        if (index !== -1) {
+            this.session.currentIndex = index;
+            this.persistSession();
+        }
     }
 
     /**
@@ -286,8 +308,9 @@ export class SessionManager extends EventEmitter {
      * Get all active notes for a file
      */
     getNotesForFile(filePath: string): ReviewNote[] {
+        const target = filePath.toLowerCase();
         return this.session?.notes.filter(
-            n => n.filePath === filePath && n.status === 'active'
+            n => n.filePath.toLowerCase() === target && n.status === 'active'
         ) || [];
     }
 

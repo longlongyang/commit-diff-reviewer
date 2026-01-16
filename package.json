@@ -2,7 +2,7 @@
   "name": "commit-diff-reviewer",
   "displayName": "Commit Diff Reviewer",
   "description": "Interactive commit difference reviewer with accept/reject functionality",
-  "version": "0.2.4",
+  "version": "0.2.7",
   "publisher": "yanglonglong",
   "icon": "images/icon.png",
   "repository": {
@@ -90,11 +90,13 @@
       {
         "command": "commitDiffReviewer.editNote",
         "title": "Edit Review Note",
+        "icon": "$(edit)",
         "category": "Commit Diff Reviewer"
       },
       {
         "command": "commitDiffReviewer.resolveNote",
         "title": "Resolve Review Note",
+        "icon": "$(check)",
         "category": "Commit Diff Reviewer"
       }
     ],
@@ -175,6 +177,30 @@
           "command": "commitDiffReviewer.resolveNote",
           "group": "modification@3",
           "when": "commitDiffReviewer.inSession && editorTextFocus"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "commitDiffReviewer.editNote",
+          "group": "navigation",
+          "when": "commentController == commitDiffReviewer"
+        },
+        {
+          "command": "commitDiffReviewer.resolveNote",
+          "group": "navigation",
+          "when": "commentController == commitDiffReviewer"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "commitDiffReviewer.editNote",
+          "group": "modification",
+          "when": "commentController == commitDiffReviewer"
+        },
+        {
+          "command": "commitDiffReviewer.resolveNote",
+          "group": "modification",
+          "when": "commentController == commitDiffReviewer"
         }
       ]
     }

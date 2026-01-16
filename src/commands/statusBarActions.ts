@@ -107,6 +107,9 @@ export async function showStatusMenu(
 
                 editor.selection = new vscode.Selection(range.start, range.start);
                 editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+
+                // Sync session index to this change
+                sessionManager.setCurrentChange(change.id);
             }
         }
         quickPick.dispose();

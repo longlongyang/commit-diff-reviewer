@@ -18,6 +18,7 @@ export class DiffCodeLensProvider implements vscode.CodeLensProvider {
         this.sessionManager.on('changeUpdated', () => this.refresh());
         this.sessionManager.on('sessionStarted', () => this.refresh());
         this.sessionManager.on('sessionEnded', () => this.refresh());
+        this.sessionManager.on('sessionRestored', () => this.refresh());
         this.sessionManager.on('lineMappingUpdated', () => this.refresh());
     }
 

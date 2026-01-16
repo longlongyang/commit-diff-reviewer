@@ -190,6 +190,7 @@ export function activate(context: vscode.ExtensionContext): void {
         // Wait a bit for editors to be ready, then apply decorations
         setTimeout(() => {
             decorationProvider.refreshAllEditors();
+            codeLensProvider.refresh();
         }, 500);
     }
 }
