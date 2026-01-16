@@ -372,4 +372,86 @@ index 1234567..abcdefg 100644
             expect(change.newContent).toEqual([]);
         });
     });
+
+    describe('GitHub-style inline diff support', () => {
+        it('should provide old content for red line display', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,3 +1,3 @@
+ line1
+-const x = 1;
++const x = 2;
+ line3
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+            const change = hunks[0].changes[0];
+
+            // For GitHub-style: old content should be available for red background display
+            expect(change.type).toBe('modify');
+            expect(change.oldContent).toHaveLength(1);
+            expect(change.oldContent[0]).toBe('const x = 1;');
+        });
+
+        it('should provide new content for green line display', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,3 +1,3 @@
+ line1
+-const x = 1;
++const x = 2;
+ line3
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+            const change = hunks[0].changes[0];
+
+            // For GitHub-style: new content should be available for green background display
+            expect(change.type).toBe('modify');
+            expect(change.newContent).toHaveLength(1);
+            expect(change.newContent[0]).toBe('const x = 2;');
+        });
+
+        it('should support pure additions (green only, no red)', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,2 +1,4 @@
+ line1
++new line A
++new line B
+ line2
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+            const change = hunks[0].changes[0];
+
+            // Pure addition: no old content (no red), only new content (green)
+            expect(change.type).toBe('add');
+            expect(change.oldContent).toEqual([]);
+            expect(change.newContent).toEqual(['new line A', 'new line B']);
+        });
+
+        it('should support pure deletions (red ghost only)', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,4 +1,2 @@
+ line1
+-deleted A
+-deleted B
+ line2
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+            const change = hunks[0].changes[0];
+
+            // Pure deletion: old content for red display, no new content
+            expect(change.type).toBe('delete');
+            expect(change.oldContent).toEqual(['deleted A', 'deleted B']);
+            expect(change.newContent).toEqual([]);
+        });
+    });
 });
