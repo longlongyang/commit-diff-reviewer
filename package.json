@@ -1,0 +1,145 @@
+{
+  "name": "commit-diff-reviewer",
+  "displayName": "Commit Diff Reviewer",
+  "description": "Review and selectively accept/reject changes from any Git commit with GitHub Copilot-style UX",
+  "version": "0.0.2",
+  "publisher": "yanglonglong",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/longlongyang/commit-diff-reviewer.git"
+  },
+  "homepage": "https://github.com/longlongyang/commit-diff-reviewer#readme",
+  "bugs": {
+    "url": "https://github.com/longlongyang/commit-diff-reviewer/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other",
+    "SCM Providers"
+  ],
+  "keywords": [
+    "git",
+    "diff",
+    "review",
+    "commit",
+    "code review"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "commitDiffReviewer.selectCommit",
+        "title": "Select Commit to Review",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.nextChange",
+        "title": "Go to Next Change",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.prevChange",
+        "title": "Go to Previous Change",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.acceptChange",
+        "title": "Accept Current Change",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.rejectChange",
+        "title": "Reject Current Change",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.acceptAll",
+        "title": "Accept All Changes",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.rejectAll",
+        "title": "Reject All Changes",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.endSession",
+        "title": "End Review Session",
+        "category": "Commit Diff Reviewer"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "commitDiffReviewer.nextChange",
+        "key": "alt+]",
+        "when": "commitDiffReviewer.inSession"
+      },
+      {
+        "command": "commitDiffReviewer.nextChange",
+        "key": "shift+f7",
+        "when": "commitDiffReviewer.inSession"
+      },
+      {
+        "command": "commitDiffReviewer.prevChange",
+        "key": "alt+[",
+        "when": "commitDiffReviewer.inSession"
+      },
+      {
+        "command": "commitDiffReviewer.prevChange",
+        "key": "f7",
+        "when": "commitDiffReviewer.inSession"
+      },
+      {
+        "command": "commitDiffReviewer.acceptChange",
+        "key": "alt+a",
+        "when": "commitDiffReviewer.inSession"
+      },
+      {
+        "command": "commitDiffReviewer.rejectChange",
+        "key": "alt+r",
+        "when": "commitDiffReviewer.inSession"
+      }
+    ],
+    "configuration": {
+      "title": "Commit Diff Reviewer",
+      "properties": {
+        "commitDiffReviewer.maxCommitsInList": {
+          "type": "number",
+          "default": 20,
+          "description": "Maximum number of commits to show in the selection list"
+        },
+        "commitDiffReviewer.highlightColors": {
+          "type": "object",
+          "default": {
+            "added": "rgba(46, 160, 67, 0.25)",
+            "deleted": "rgba(248, 81, 73, 0.25)",
+            "modified": "rgba(210, 153, 34, 0.25)"
+          },
+          "description": "Colors for diff highlighting"
+        }
+      }
+    }
+  },
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.74.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}

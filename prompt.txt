@@ -1,0 +1,256 @@
+# VSCode/Cursor 插件开发 Prompt：Git Commit 差异审查工具
+
+## 📋 任务概述
+
+请开发一个 VSCode/Cursor 插件，名为 **"Commit Diff Reviewer"**，实现类似 GitHub Copilot 代码审查的交互体验，但针对 Git commit 的差异进行可视化审查和逐条处理。
+
+---
+
+## 🎯 核心功能需求
+
+### 1. Commit 选择器
+- 提供命令面板命令：`Commit Diff Reviewer: Select Commit to Review`
+- 弹出 Quick Pick 列表，显示最近 N 个 commits（可配置，默认 20）
+- 每个选项显示：commit hash（短）、提交信息、作者、时间
+- 支持输入完整 commit hash 直接选择
+
+### 2. 差异高亮显示
+选中 commit 后，对当前工作区中**相对该 commit 修改的所有文件**进行差异高亮：
+
+- **新增行**：绿色背景高亮 + 左侧绿色边栏标记
+- **删除行**：红色背景高亮（以「幽灵行」或内联删除线形式展示）+ 左侧红色边栏标记
+- **修改行**：黄色/橙色背景高亮，同时展示新旧内容对比
+
+使用 VSCode 的 `TextEditorDecorationType` API 实现高亮。
+
+### 3. 差异导航系统
+- 在编辑器状态栏显示导航控件：`< 上一处 | 当前: 3/15 | 下一处 >`
+- 快捷键支持：
+  - `Alt+[` 或 `F7`：跳转到上一处改动
+  - `Alt+]` 或 `Shift+F7`：跳转到下一处改动
+- 跳转时自动滚动并将改动置于屏幕中央
+- 支持跨文件跳转（按文件顺序）
+
+### 4. 改动处理操作
+每处改动旁边显示 CodeLens 或悬浮按钮：
+
+**接受改动 (Accept)**
+- 行为：仅取消该处高亮，保留当前代码不变
+- 视觉反馈：高亮渐隐消失
+
+**拒绝改动 (Reject)**
+- 行为：将该处代码 revert 到 commit 的状态，然后取消高亮
+- 对于新增行：删除这些行
+- 对于删除行：恢复这些行
+- 对于修改行：恢复为旧内容
+
+**全部接受 / 全部拒绝**
+- 提供命令一次性处理所有剩余改动
+
+### 5. 状态持久化
+- 记录当前审查会话状态（哪些改动已处理）
+- 支持关闭文件/编辑器后重新打开继续审查
+- 提供命令：`Commit Diff Reviewer: End Review Session` 结束审查并清除所有状态
+
+---
+
+## 🏗️ 技术实现指引
+
+### 项目结构
+```
+commit-diff-reviewer/
+├── src/
+│   ├── extension.ts          # 插件入口
+│   ├── commands/
+│   │   ├── selectCommit.ts   # commit 选择逻辑
+│   │   ├── navigation.ts     # 导航命令
+│   │   └── diffActions.ts    # 接受/拒绝操作
+│   ├── providers/
+│   │   ├── decorationProvider.ts  # 高亮装饰器
+│   │   ├── codeLensProvider.ts    # CodeLens 按钮
+│   │   └── statusBarProvider.ts   # 状态栏控件
+│   ├── services/
+│   │   ├── gitService.ts     # Git 操作封装
+│   │   ├── diffParser.ts     # diff 解析器
+│   │   └── sessionManager.ts # 会话状态管理
+│   ├── models/
+│   │   └── types.ts          # 类型定义
+│   └── utils/
+│       └── helpers.ts
+├── package.json
+├── tsconfig.json
+└── README.md
+```
+
+### 关键 API 使用
+
+```typescript
+// 1. 获取 Git 信息 - 使用 VSCode 内置 Git 扩展
+const gitExtension = vscode.extensions.getExtension('vscode.git');
+const git = gitExtension?.exports.getAPI(1);
+
+// 2. 执行 git diff 命令
+import { exec } from 'child_process';
+exec(`git diff ${commitHash}^ ${commitHash}`, { cwd: workspaceRoot }, callback);
+
+// 3. 创建高亮装饰
+const addedLineDecoration = vscode.window.createTextEditorDecorationType({
+    backgroundColor: 'rgba(0, 255, 0, 0.2)',
+    isWholeLine: true,
+    overviewRulerColor: 'green',
+    overviewRulerLane: vscode.OverviewRulerLane.Left
+});
+
+// 4. 应用装饰
+editor.setDecorations(addedLineDecoration, ranges);
+
+// 5. CodeLens Provider
+class DiffCodeLensProvider implements vscode.CodeLensProvider {
+    provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+        // 返回每处改动的 Accept/Reject 按钮
+    }
+}
+```
+
+### Diff 解析核心逻辑
+
+```typescript
+interface DiffHunk {
+    filePath: string;
+    oldStart: number;
+    oldLines: number;
+    newStart: number;
+    newLines: number;
+    changes: Array<{
+        type: 'add' | 'delete' | 'modify';
+        oldContent?: string;
+        newContent?: string;
+        lineNumber: number;
+    }>;
+}
+
+function parseDiffOutput(diffOutput: string): DiffHunk[] {
+    // 解析 unified diff 格式
+    // 处理 @@ -a,b +c,d @@ 标记
+    // 识别 +/- 开头的行
+}
+```
+
+### 关键注意事项
+
+1. **行号同步问题**：
+   - 用户可能在审查过程中编辑文件，需要监听 `onDidChangeTextDocument` 事件
+   - 实时更新改动位置的行号映射
+
+2. **Revert 操作的原子性**：
+   - 拒绝操作需要精确替换，考虑使用 `WorkspaceEdit` API
+   - 处理多行改动时保持事务性
+
+3. **性能优化**：
+   - 大文件/大量改动时使用虚拟化或懒加载
+   - 装饰器按需更新，避免全量刷新
+
+4. **边界情况处理**：
+   - 文件已被删除/重命名
+   - 二进制文件
+   - Merge commits（多个 parent）
+   - 冲突状态
+
+---
+
+## 📦 package.json 配置要点
+
+```json
+{
+  "name": "commit-diff-reviewer",
+  "displayName": "Commit Diff Reviewer",
+  "description": "Review and selectively accept/reject changes from any Git commit",
+  "version": "0.0.1",
+  "engines": { "vscode": "^1.74.0" },
+  "categories": ["Other"],
+  "activationEvents": [
+    "onCommand:commitDiffReviewer.selectCommit"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "commitDiffReviewer.selectCommit", "title": "Select Commit to Review", "category": "Commit Diff Reviewer" },
+      { "command": "commitDiffReviewer.nextChange", "title": "Go to Next Change" },
+      { "command": "commitDiffReviewer.prevChange", "title": "Go to Previous Change" },
+      { "command": "commitDiffReviewer.acceptChange", "title": "Accept Current Change" },
+      { "command": "commitDiffReviewer.rejectChange", "title": "Reject Current Change" },
+      { "command": "commitDiffReviewer.acceptAll", "title": "Accept All Changes" },
+      { "command": "commitDiffReviewer.rejectAll", "title": "Reject All Changes" },
+      { "command": "commitDiffReviewer.endSession", "title": "End Review Session" }
+    ],
+    "keybindings": [
+      { "command": "commitDiffReviewer.nextChange", "key": "alt+]", "when": "commitDiffReviewer.inSession" },
+      { "command": "commitDiffReviewer.prevChange", "key": "alt+[", "when": "commitDiffReviewer.inSession" },
+      { "command": "commitDiffReviewer.acceptChange", "key": "alt+a", "when": "commitDiffReviewer.inSession" },
+      { "command": "commitDiffReviewer.rejectChange", "key": "alt+r", "when": "commitDiffReviewer.inSession" }
+    ],
+    "configuration": {
+      "title": "Commit Diff Reviewer",
+      "properties": {
+        "commitDiffReviewer.maxCommitsInList": {
+          "type": "number",
+          "default": 20,
+          "description": "Maximum number of commits to show in the selection list"
+        },
+        "commitDiffReviewer.highlightColors": {
+          "type": "object",
+          "default": {
+            "added": "rgba(0, 255, 0, 0.2)",
+            "deleted": "rgba(255, 0, 0, 0.2)",
+            "modified": "rgba(255, 165, 0, 0.2)"
+          }
+        }
+      }
+    }
+  },
+  "extensionDependencies": ["vscode.git"]
+}
+```
+
+---
+
+## 🔄 用户交互流程
+
+```
+1. 用户执行命令 → 弹出 commit 列表
+2. 选择 commit → 扫描所有改动文件 → 应用高亮
+3. 自动跳转到第一处改动
+4. 用户浏览/导航改动：
+   ├── 点击 Accept → 取消高亮，保持代码
+   ├── 点击 Reject → revert 代码，取消高亮
+   └── 继续下一处...
+5. 所有改动处理完毕 → 显示总结 → 自动结束会话
+```
+
+---
+
+## ✅ 验收标准
+
+1. [ ] 能正确列出并选择 Git commits
+2. [ ] 所有改动被正确识别并高亮显示
+3. [ ] 导航功能正常，可跨文件跳转
+4. [ ] Accept 操作仅移除高亮
+5. [ ] Reject 操作正确 revert 代码内容
+6. [ ] 状态栏正确显示进度 (x/y)
+7. [ ] 会话可正常结束和清理
+8. [ ] 处理边界情况不崩溃
+
+---
+
+## 🚀 扩展功能（可选）
+
+- 支持选择 commit 范围（从 A 到 B）
+- 支持对比任意两个 ref（分支、tag）
+- 集成 Tree View 显示所有改动文件列表
+- 支持部分行接受/拒绝（hunk 级别细分）
+- 添加撤销操作（Undo last reject）
+- Webview 面板展示改动概览
+
+---
+
+请按照以上需求和指引，逐步实现这个插件。如有任何技术细节不清楚，请先提出问题。
