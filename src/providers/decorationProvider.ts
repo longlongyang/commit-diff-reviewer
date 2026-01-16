@@ -16,7 +16,7 @@ export class DecorationProvider implements vscode.Disposable {
     // For modifications: show new content with green background
     private modifiedNewLineDecoration: vscode.TextEditorDecorationType;
 
-    // For deleted content block (rendered above the change)
+    // For deleted content block (rendered at End of Line to prevent layout overlap)
     private deletedBlockDecoration: vscode.TextEditorDecorationType;
 
     // Gutter decorations
@@ -48,22 +48,17 @@ export class DecorationProvider implements vscode.Disposable {
             overviewRulerLane: vscode.OverviewRulerLane.Left
         });
 
-        // 3. Deleted block decoration
-        // This attaches to the START of the change block and renders the deleted content
-        // as a block element ABOVE the current line.
-        // We use 'before' with formatted content string.
+        // 3. Deleted block decoration (Inline at end of line)
+        // Note: We avoid 'display: block' because it causes layout overlap with subsequent lines
+        // in VSCode's current rendering engine.
+        // Instead, we use a distinct 'after' decoration that looks like a block to the side.
         this.deletedBlockDecoration = vscode.window.createTextEditorDecorationType({
-            isWholeLine: true,
-            before: {
-                backgroundColor: config.highlightColors.deleted,
-                color: 'rgba(200, 200, 200, 0.7)', // Faded text for deleted content
-
-                // Important: rendering properties to make it look like code block
-                fontStyle: 'normal',
-                fontWeight: 'normal',
-                textDecoration: 'none',
-
-                // ensure it takes full width if possible (though limited by VSCode API)
+            after: {
+                color: 'rgba(255, 255, 255, 0.6)',
+                backgroundColor: 'rgba(200, 50, 50, 0.2)',
+                margin: '0 0 0 20px', // Spacing from code
+                border: '1px solid rgba(200, 50, 50, 0.4)',
+                fontStyle: 'italic'
             }
         });
 
@@ -145,13 +140,13 @@ export class DecorationProvider implements vscode.Disposable {
                     break;
 
                 case 'delete':
-                    // Pure deletion: Attach "before" decoration to the line WHERE it should have been.
-                    // If at end of file, attach to last line.
+                    // Pure deletion: Attach "after" decoration to the previous line (if possible),
+                    // or "before" if start of file.
                     this.addDeletedBlockDecoration(change, editor.document, deletedBlockRanges, deletedGutterRanges);
                     break;
 
                 case 'modify':
-                    // Modification: Deleted block ABOVE, New content usage existing lines.
+                    // Modification: Deleted content shown inline (end of line)
                     this.addDeletedBlockDecoration(change, editor.document, deletedBlockRanges, deletedGutterRanges);
                     this.addModificationNewRanges(change, editor.document, modifiedNewRanges, addedGutterRanges);
                     break;
@@ -198,7 +193,7 @@ export class DecorationProvider implements vscode.Disposable {
         }
     }
 
-    // Handles the "Red" part (deleted content) by injecting a block visual
+    // Handles the "Red" part (deleted content)
     private addDeletedBlockDecoration(
         change: DiffChange,
         document: vscode.TextDocument,
@@ -207,42 +202,55 @@ export class DecorationProvider implements vscode.Disposable {
     ): void {
         if (!change.oldContent || change.oldContent.length === 0) return;
 
-        // Target line to attach the "before" decoration
+        // Target: We prefer to show it at the end of the *first added line* for modifications.
+        // For pure deletions, we show it at end of *previous line* (or next line if line 0).
         let targetLineIndex = change.newLineStart - 1;
 
-        // Safety check boundaries
+        // Safety bound
         if (targetLineIndex < 0) targetLineIndex = 0;
         if (targetLineIndex >= document.lineCount) targetLineIndex = document.lineCount - 1;
 
         const targetLine = document.lineAt(targetLineIndex);
 
-        // Format old content: Prefix with '-' to mimic git diff
-        const deletedText = change.oldContent.map(line => `- ${line}`).join('\n') + '\n';
-        const lineCount = change.oldContent.length;
+        // Formatting:
+        // Since we can't do multi-line blocks reliably without overlap, 
+        // we truncate to single line + ellipsis. Full content in Hover.
+        const maxDisplayLength = 60;
+        const firstLine = change.oldContent[0];
+        let displayText = `- ${firstLine.trim()}`;
+        if (displayText.length > maxDisplayLength) {
+            displayText = displayText.substring(0, maxDisplayLength) + '...';
+        }
 
-        // Create the decoration option
+        if (change.oldContent.length > 1) {
+            displayText += ` (+${change.oldContent.length - 1} more lines)`;
+        }
+
+        // Full content for hover (Git diff style)
+        const hoverContent = new vscode.MarkdownString();
+        hoverContent.appendMarkdown('**🔴 Deleted Content:**\n\n');
+        hoverContent.appendCodeblock(change.oldContent.join('\n'), 'text');
+
+        // Note: We use 'after' to append to end of line.
+        // This ensures NO layout shift and NO overlap.
+        // We add padding to separate it from code.
         ranges.push({
-            range: new vscode.Range(targetLineIndex, 0, targetLineIndex, 0), // Start of the line
+            range: new vscode.Range(targetLineIndex, targetLine.range.end.character, targetLineIndex, targetLine.range.end.character),
             renderOptions: {
-                before: {
-                    contentText: deletedText,
-                    // Use CSS hacks via textDecoration to force block display and pre-formatting
-                    // 'none' closes the text-decoration property, allowing injection of other properties
-                    textDecoration: 'none; display: block; white-space: pre; width: 100%; box-sizing: border-box;',
-
-                    color: 'rgba(255, 255, 255, 0.5)', // Distinct text color
-                    backgroundColor: 'rgba(200, 50, 50, 0.3)', // Red background for the block
-                    margin: '0 0 0 0', // Reset margin
-                    fontStyle: 'normal'
+                after: {
+                    contentText: `  |  ${displayText}`, // Separator
+                    fontWeight: 'bold',
+                    color: 'rgba(255, 100, 100, 0.8)', // Brighter red text
+                    backgroundColor: 'rgba(50, 0, 0, 0.2)', // Subtle background
                 }
-            }
+            },
+            hoverMessage: hoverContent
         });
 
         // Add red gutter indication
-        // Since we can't easily expand gutter height for virtual lines, 
-        // we attach the red gutter to the same anchor line, potentially overlapping or side-by-side.
-        // Or we prioritize the green gutter if it's a modification.
-        // Let's rely on the red block background for visibility.
+        deletedGutterRanges.push({
+            range: new vscode.Range(targetLineIndex, 0, targetLineIndex, 0)
+        });
     }
 
     clearDecorations(editor: vscode.TextEditor): void {
@@ -267,7 +275,6 @@ export class DecorationProvider implements vscode.Disposable {
 
     dispose(): void {
         this.addedLineDecoration.dispose();
-
         this.modifiedNewLineDecoration.dispose();
         this.deletedBlockDecoration.dispose();
         this.addedGutterDecoration.dispose();
