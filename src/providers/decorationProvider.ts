@@ -44,9 +44,9 @@ export class DecorationProvider implements vscode.Disposable {
         });
 
         this.modifiedLineDecoration = vscode.window.createTextEditorDecorationType({
-            backgroundColor: config.highlightColors.modified,
+            backgroundColor: config.highlightColors.added, // Use green for new content in modifications
             isWholeLine: true,
-            overviewRulerColor: 'rgba(210, 153, 34, 0.8)',
+            overviewRulerColor: 'rgba(210, 153, 34, 0.8)', // Yellow in overview ruler to indicate modification
             overviewRulerLane: vscode.OverviewRulerLane.Left
         });
 
@@ -188,8 +188,26 @@ export class DecorationProvider implements vscode.Disposable {
                     }
                     break;
                 case 'modify':
+                    // For modifications: show new lines in green
                     modifiedRanges.push(...ranges.main);
                     modifiedGutterRanges.push(...ranges.gutter);
+
+                    // Show ghost text indicating what was removed (in red)
+                    if (change.oldContent.length > 0) {
+                        const modifyLine = Math.max(0, change.newLineStart - 1);
+
+                        // Show deleted content summary
+                        ghostRanges.push({
+                            range: new vscode.Range(modifyLine, 0, modifyLine, 0),
+                            renderOptions: {
+                                before: {
+                                    contentText: `⊖ `,
+                                    color: 'rgba(248, 81, 73, 0.8)',
+                                    fontWeight: 'bold'
+                                }
+                            }
+                        });
+                    }
                     break;
             }
         }

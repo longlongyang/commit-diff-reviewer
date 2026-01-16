@@ -265,4 +265,111 @@ index 1234567..abcdefg 100644
             expect(getAffectedFiles([])).toEqual([]);
         });
     });
+
+    describe('modification highlighting support', () => {
+        it('should preserve both old and new content for modifications', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,3 +1,3 @@
+ line1
+-old content
++new content
+ line3
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+
+            const change = hunks[0].changes[0];
+            expect(change.type).toBe('modify');
+            // Verify both old (for red display) and new (for green display) content are preserved
+            expect(change.oldContent).toEqual(['old content']);
+            expect(change.newContent).toEqual(['new content']);
+            expect(change.oldLineCount).toBe(1);
+            expect(change.newLineCount).toBe(1);
+        });
+
+        it('should handle multi-line modifications correctly', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,4 +1,4 @@
+ line1
+-old line 1
+-old line 2
++new line 1
++new line 2
+ line4
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+
+            const change = hunks[0].changes[0];
+            expect(change.type).toBe('modify');
+            // Multi-line modifications should preserve all old and new lines
+            expect(change.oldContent).toEqual(['old line 1', 'old line 2']);
+            expect(change.newContent).toEqual(['new line 1', 'new line 2']);
+            expect(change.oldLineCount).toBe(2);
+            expect(change.newLineCount).toBe(2);
+        });
+
+        it('should handle modification with different line counts', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,5 +1,3 @@
+ line1
+-old line 1
+-old line 2
+-old line 3
++new single line
+ end
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+
+            const change = hunks[0].changes[0];
+            expect(change.type).toBe('modify');
+            expect(change.oldContent).toEqual(['old line 1', 'old line 2', 'old line 3']);
+            expect(change.newContent).toEqual(['new single line']);
+            expect(change.oldLineCount).toBe(3);
+            expect(change.newLineCount).toBe(1);
+        });
+
+        it('should correctly identify type for add (no old content)', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,2 +1,3 @@
+ existing
++added line
+ end
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+
+            const change = hunks[0].changes[0];
+            expect(change.type).toBe('add');
+            expect(change.oldContent).toEqual([]);
+            expect(change.newContent).toEqual(['added line']);
+        });
+
+        it('should correctly identify type for delete (no new content)', () => {
+            const diffOutput = `diff --git a/file.ts b/file.ts
+index 1234567..abcdefg 100644
+--- a/file.ts
++++ b/file.ts
+@@ -1,3 +1,2 @@
+ existing
+-deleted line
+ end
+`;
+            const hunks = parseDiffOutput(diffOutput, '/workspace');
+
+            const change = hunks[0].changes[0];
+            expect(change.type).toBe('delete');
+            expect(change.oldContent).toEqual(['deleted line']);
+            expect(change.newContent).toEqual([]);
+        });
+    });
 });
