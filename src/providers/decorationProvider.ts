@@ -248,7 +248,7 @@ export class DecorationProvider implements vscode.Disposable {
         });
 
         // Add red gutter indication
-        deletedGutterRanges.push({
+        gutterRanges.push({
             range: new vscode.Range(targetLineIndex, 0, targetLineIndex, 0)
         });
     }
