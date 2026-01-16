@@ -374,4 +374,89 @@ describe('SessionManager', () => {
             expect(sessionManager.getCurrentChange()).toBeNull();
         });
     });
+
+    describe('auto-end session support', () => {
+        it('should report zero pending changes when all accepted', () => {
+            const changes = createMockChanges();
+            sessionManager.startSession('hash', 'short', 'msg', 'base', changes);
+
+            sessionManager.acceptChange('change1');
+            sessionManager.acceptChange('change2');
+            sessionManager.acceptChange('change3');
+
+            const stats = sessionManager.getSessionStats();
+            expect(stats.pending).toBe(0);
+            expect(stats.accepted).toBe(3);
+            expect(stats.rejected).toBe(0);
+        });
+
+        it('should report zero pending changes when all rejected', () => {
+            const changes = createMockChanges();
+            sessionManager.startSession('hash', 'short', 'msg', 'base', changes);
+
+            sessionManager.rejectChange('change1');
+            sessionManager.rejectChange('change2');
+            sessionManager.rejectChange('change3');
+
+            const stats = sessionManager.getSessionStats();
+            expect(stats.pending).toBe(0);
+            expect(stats.accepted).toBe(0);
+            expect(stats.rejected).toBe(3);
+        });
+
+        it('should report zero pending when mixed accept/reject', () => {
+            const changes = createMockChanges();
+            sessionManager.startSession('hash', 'short', 'msg', 'base', changes);
+
+            sessionManager.acceptChange('change1');
+            sessionManager.rejectChange('change2');
+            sessionManager.acceptChange('change3');
+
+            const stats = sessionManager.getSessionStats();
+            expect(stats.pending).toBe(0);
+            expect(stats.accepted).toBe(2);
+            expect(stats.rejected).toBe(1);
+        });
+
+        it('should allow endSession to be called after all changes processed', () => {
+            const changes = createMockChanges();
+            sessionManager.startSession('hash', 'short', 'msg', 'base', changes);
+
+            sessionManager.acceptChange('change1');
+            sessionManager.acceptChange('change2');
+            sessionManager.acceptChange('change3');
+
+            // Session should still be active
+            expect(sessionManager.hasActiveSession()).toBe(true);
+
+            // End session should work and return stats
+            const stats = sessionManager.endSession();
+            expect(stats).toEqual({
+                accepted: 3,
+                rejected: 0,
+                pending: 0
+            });
+            expect(sessionManager.hasActiveSession()).toBe(false);
+        });
+
+        it('should return correct stats summary for auto-end scenarios', () => {
+            const changes = createMockChanges();
+            sessionManager.startSession('hash', 'short', 'msg', 'base', changes);
+
+            // Process all changes
+            sessionManager.acceptChange('change1');
+            sessionManager.rejectChange('change2');
+            sessionManager.acceptChange('change3');
+
+            // Get stats before ending (for auto-end message)
+            const preEndStats = sessionManager.getSessionStats();
+            expect(preEndStats.pending).toBe(0);
+            expect(preEndStats.accepted).toBe(2);
+            expect(preEndStats.rejected).toBe(1);
+
+            // End session
+            const endStats = sessionManager.endSession();
+            expect(endStats).toEqual(preEndStats);
+        });
+    });
 });

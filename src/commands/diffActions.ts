@@ -49,11 +49,8 @@ export async function acceptChangeById(
     // Refresh decorations
     decorationProvider.refreshAllEditors();
 
-    // Auto-navigate to next pending change
-    const stats = sessionManager.getSessionStats();
-    if (stats.pending === 0) {
-        showCompletionMessage(sessionManager);
-    }
+    // Auto-end session if all changes are resolved
+    checkAndAutoEndSession(sessionManager, decorationProvider);
 }
 
 /**
@@ -103,11 +100,8 @@ export async function rejectChangeById(
         // Refresh decorations
         decorationProvider.refreshAllEditors();
 
-        // Check if all done
-        const stats = sessionManager.getSessionStats();
-        if (stats.pending === 0) {
-            showCompletionMessage(sessionManager);
-        }
+        // Auto-end session if all changes are resolved
+        checkAndAutoEndSession(sessionManager, decorationProvider);
 
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to reject change: ${error}`);
@@ -228,7 +222,7 @@ export async function acceptAll(
     }
 
     decorationProvider.refreshAllEditors();
-    showCompletionMessage(sessionManager);
+    checkAndAutoEndSession(sessionManager, decorationProvider);
 }
 
 /**
@@ -312,23 +306,39 @@ export async function rejectAll(
     if (failed > 0) {
         vscode.window.showWarningMessage(`Rejected changes with ${failed} error(s).`);
     } else {
-        showCompletionMessage(sessionManager);
+        checkAndAutoEndSession(sessionManager, decorationProvider);
     }
 }
 
 /**
- * Show completion message
+ * Auto-end session when all changes are resolved
  */
-function showCompletionMessage(sessionManager: SessionManager): void {
+function autoEndSession(sessionManager: SessionManager, decorationProvider: DecorationProvider): void {
     const stats = sessionManager.getSessionStats();
 
+    // End the session
+    sessionManager.endSession();
+
+    // Clear all decorations
+    decorationProvider.clearAllDecorations();
+
+    // Show summary notification
     vscode.window.showInformationMessage(
-        `Review complete! Accepted: ${stats.accepted}, Rejected: ${stats.rejected}`,
-        'End Session',
-        'Keep Session Open'
-    ).then(selection => {
-        if (selection === 'End Session') {
-            vscode.commands.executeCommand('commitDiffReviewer.endSession');
-        }
-    });
+        `Review complete! Accepted: ${stats.accepted}, Rejected: ${stats.rejected}. Session ended automatically.`
+    );
+}
+
+/**
+ * Check and auto-end session if all changes are resolved
+ */
+export function checkAndAutoEndSession(
+    sessionManager: SessionManager,
+    decorationProvider: DecorationProvider
+): boolean {
+    const stats = sessionManager.getSessionStats();
+    if (stats.pending === 0 && sessionManager.hasActiveSession()) {
+        autoEndSession(sessionManager, decorationProvider);
+        return true;
+    }
+    return false;
 }
