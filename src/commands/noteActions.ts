@@ -1,10 +1,11 @@
 
 import * as vscode from 'vscode';
 import { SessionManager } from '../services/sessionManager';
-import { NoteDecorationProvider } from '../providers/noteDecorationProvider';
+import { NoteCommentManager } from '../providers/noteCommentManager';
 import { NoteInputPanel } from '../ui/noteInputPanel';
 import { ReviewNote } from '../models/types';
 import * as path from 'path';
+// NoteCommentManager imported above
 
 /**
  * Add a new note at current cursor position
@@ -12,7 +13,7 @@ import * as path from 'path';
 export async function addNote(
     context: vscode.ExtensionContext,
     sessionManager: SessionManager,
-    noteDecorationProvider: NoteDecorationProvider
+    noteCommentManager: NoteCommentManager
 ): Promise<void> {
     if (!sessionManager.hasActiveSession()) {
         const result = await vscode.window.showWarningMessage(
@@ -59,7 +60,8 @@ export async function addNote(
             };
 
             sessionManager.addNote(newNote);
-            noteDecorationProvider.refreshAllEditors();
+            sessionManager.addNote(newNote);
+            // noteCommentManager listens to 'noteAdded' event automatically
             vscode.window.showInformationMessage('Note added');
         }
     );
@@ -72,7 +74,7 @@ export async function editNote(
     context: vscode.ExtensionContext,
     sessionManager: SessionManager,
     note: ReviewNote,
-    noteDecorationProvider: NoteDecorationProvider
+    noteCommentManager: NoteCommentManager
 ): Promise<void> {
     NoteInputPanel.createOrShow(
         context.extensionUri,
@@ -81,7 +83,8 @@ export async function editNote(
         (content) => {
             if (!content.trim()) return;
             sessionManager.updateNote(note.id, content);
-            noteDecorationProvider.refreshAllEditors();
+            sessionManager.updateNote(note.id, content);
+            // noteCommentManager listens to 'noteUpdated' event
             vscode.window.showInformationMessage('Note updated');
         }
     );
@@ -93,7 +96,7 @@ export async function editNote(
 export async function resolveNote(
     sessionManager: SessionManager,
     note: ReviewNote,
-    noteDecorationProvider: NoteDecorationProvider
+    noteCommentManager: NoteCommentManager
 ): Promise<void> {
     const config = vscode.workspace.getConfiguration('commitDiffReviewer');
     const deleteOnResolve = config.get<boolean>('deleteNoteOnResolve', true);
@@ -111,8 +114,6 @@ export async function resolveNote(
         sessionManager.resolveNote(note.id);
         vscode.window.showInformationMessage('Note resolved');
     }
-
-    noteDecorationProvider.refreshAllEditors();
 }
 
 /**

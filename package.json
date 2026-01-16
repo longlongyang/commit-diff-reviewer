@@ -2,7 +2,7 @@
   "name": "commit-diff-reviewer",
   "displayName": "Commit Diff Reviewer",
   "description": "Interactive commit difference reviewer with accept/reject functionality",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "publisher": "yanglonglong",
   "icon": "images/icon.png",
   "repository": {

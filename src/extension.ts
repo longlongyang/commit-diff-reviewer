@@ -29,7 +29,7 @@ import {
 } from './commands/diffActions';
 import { endSession } from './commands/endSession';
 import { showStatusMenu } from './commands/statusBarActions';
-import { NoteDecorationProvider } from './providers/noteDecorationProvider';
+import { NoteCommentManager } from './providers/noteCommentManager';
 import { addNote, editNote, getNoteAtCursor, resolveNote } from './commands/noteActions';
 
 /**
@@ -45,7 +45,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Initialize providers
     const decorationProvider = new DecorationProvider(sessionManager);
     const statusBarProvider = new StatusBarProvider(sessionManager);
-    const noteDecorationProvider = new NoteDecorationProvider(sessionManager, context);
+    const noteCommentManager = new NoteCommentManager(sessionManager, context);
 
     // Check for session recovery
     if (sessionManager.hasActiveSession()) {
@@ -107,16 +107,31 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // Note Commands
         vscode.commands.registerCommand('commitDiffReviewer.addNote', () =>
-            addNote(context, sessionManager, noteDecorationProvider)),
+            addNote(context, sessionManager, noteCommentManager)),
 
-        vscode.commands.registerCommand('commitDiffReviewer.editNote', () => {
-            const note = getNoteAtCursor(sessionManager);
-            if (note) editNote(context, sessionManager, note, noteDecorationProvider);
+        vscode.commands.registerCommand('commitDiffReviewer.editNote', (comment?: any) => {
+            // Support both Palette/Context (no arg) and Comment Widget (arg: NoteComment)
+            if (comment && comment.id) {
+                // Comment Widget Trigger
+                const note = sessionManager.getCurrentSession()?.notes.find(n => n.id === comment.id);
+                if (note) editNote(context, sessionManager, note, noteCommentManager);
+            } else {
+                // Context Menu / Palette Trigger
+                const note = getNoteAtCursor(sessionManager);
+                if (note) editNote(context, sessionManager, note, noteCommentManager);
+            }
         }),
 
-        vscode.commands.registerCommand('commitDiffReviewer.resolveNote', () => {
-            const note = getNoteAtCursor(sessionManager);
-            if (note) resolveNote(sessionManager, note, noteDecorationProvider);
+        vscode.commands.registerCommand('commitDiffReviewer.resolveNote', (comment?: any) => {
+            // Support both Palette/Context (no arg) and Comment Widget (arg: NoteComment)
+            if (comment && comment.id) {
+                // Comment Widget Trigger
+                sessionManager.resolveNote(comment.id);
+            } else {
+                // Context Menu / Palette Trigger
+                const note = getNoteAtCursor(sessionManager);
+                if (note) resolveNote(sessionManager, note, noteCommentManager);
+            }
         }),
 
         // Accept/Reject by ID (for CodeLens buttons) - these are the original explicit ones
