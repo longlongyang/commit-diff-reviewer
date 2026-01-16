@@ -143,14 +143,15 @@ async function startReviewSession(
         },
         async (progress) => {
             try {
-                progress.report({ message: 'Getting diff from commit...' });
+                progress.report({ message: 'Getting diff from commit to HEAD...' });
 
-                // Get the diff
-                const diffOutput = await gitService.getDiff(commitInfo.hash);
+                // Get the diff from selected commit to HEAD
+                // This shows all changes that happened AFTER the selected commit
+                const diffOutput = await gitService.getDiffFromCommit(commitInfo.hash);
 
                 if (!diffOutput || diffOutput.trim().length === 0) {
                     vscode.window.showWarningMessage(
-                        'This commit has no detectable changes (might be a merge commit or only binary files).'
+                        'No changes found between this commit and HEAD. The working directory matches this commit.'
                     );
                     return;
                 }
