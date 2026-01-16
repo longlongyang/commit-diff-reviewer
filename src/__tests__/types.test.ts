@@ -67,17 +67,19 @@ describe('Types', () => {
     describe('ReviewSession', () => {
         it('should allow valid ReviewSession object', () => {
             const session: ReviewSession = {
-                commitHash: 'abc1234567890',
-                shortHash: 'abc1234',
-                commitMessage: 'Test commit message',
-                baseCommitHash: 'parent123',
+                commitHash: 'hash',
+                shortHash: 'short',
+                commitMessage: 'msg',
+                baseCommitHash: 'base',
                 changes: [],
+                notes: [],
                 currentIndex: 0,
                 startedAt: new Date()
             };
 
-            expect(session.commitHash).toBe('abc1234567890');
+            expect(session.commitHash).toBe('hash');
             expect(session.changes).toHaveLength(0);
+            expect(session.notes).toHaveLength(0);
         });
     });
 

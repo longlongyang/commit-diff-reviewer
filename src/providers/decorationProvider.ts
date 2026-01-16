@@ -74,11 +74,12 @@ export class DecorationProvider implements vscode.Disposable {
         });
 
         // Listen for events
-        this.sessionManager.on('changeUpdated', () => this.refreshAllEditors());
-        this.sessionManager.on('sessionEnded', () => this.clearAllDecorations());
-        this.sessionManager.on('sessionRestored', () => this.refreshAllEditors());
+        this.registerListener('changeUpdated', () => this.refreshAllEditors());
+        this.registerListener('sessionEnded', () => this.clearAllDecorations());
+        this.registerListener('sessionRestored', () => this.refreshAllEditors());
 
         // Listen for editor changes
+
         this.disposables.push(
             vscode.window.onDidChangeActiveTextEditor(editor => {
                 if (editor) {
@@ -99,10 +100,18 @@ export class DecorationProvider implements vscode.Disposable {
         );
     }
 
+    private registerListener(event: string, callback: (...args: any[]) => void): void {
+        this.sessionManager.on(event, callback);
+        this.disposables.push({
+            dispose: () => this.sessionManager.off(event, callback)
+        });
+    }
+
     private getConfig(): ExtensionConfig {
         const config = vscode.workspace.getConfiguration('commitDiffReviewer');
         return {
             maxCommitsInList: config.get('maxCommitsInList', 20),
+            autoNavigation: config.get('autoNavigation', true),
             highlightColors: config.get('highlightColors', {
                 added: 'rgba(46, 160, 67, 0.2)',
                 deleted: 'rgba(248, 81, 73, 0.2)', // Red background

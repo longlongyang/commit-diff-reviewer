@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
-import { DiffChange, ReviewSession, SerializedSession } from '../models/types';
+import { DiffChange, ReviewSession, SerializedSession, ReviewNote } from '../models/types';
 
 const SESSION_STORAGE_KEY = 'commitDiffReviewer.session';
 
@@ -34,6 +34,7 @@ export class SessionManager extends EventEmitter {
             commitMessage,
             baseCommitHash,
             changes,
+            notes: [],
             currentIndex: 0,
             startedAt: new Date()
         };
@@ -227,6 +228,77 @@ export class SessionManager extends EventEmitter {
     }
 
     /**
+     * Add a new note
+     */
+    addNote(note: ReviewNote): void {
+        if (!this.session) return;
+        this.session.notes.push(note);
+        this.persistSession();
+        this.emit('noteAdded', note);
+        this.emit('notesUpdated');
+    }
+
+    /**
+     * Update an existing note
+     */
+    updateNote(noteId: string, content: string): void {
+        if (!this.session) return;
+        const note = this.session.notes.find(n => n.id === noteId);
+        if (note) {
+            note.content = content;
+            note.updatedAt = new Date();
+            this.persistSession();
+            this.emit('noteUpdated', note);
+            this.emit('notesUpdated');
+        }
+    }
+
+    /**
+     * Resolve a note
+     */
+    resolveNote(noteId: string): void {
+        if (!this.session) return;
+        const note = this.session.notes.find(n => n.id === noteId);
+        if (note) {
+            note.status = 'resolved';
+            this.persistSession();
+            this.emit('noteResolved', note);
+            this.emit('notesUpdated');
+        }
+    }
+
+    /**
+     * Delete a note
+     */
+    deleteNote(noteId: string): void {
+        if (!this.session) return;
+        const index = this.session.notes.findIndex(n => n.id === noteId);
+        if (index !== -1) {
+            const deleted = this.session.notes[index];
+            this.session.notes.splice(index, 1);
+            this.persistSession();
+            this.emit('noteDeleted', deleted);
+            this.emit('notesUpdated');
+        }
+    }
+
+    /**
+     * Get all active notes for a file
+     */
+    getNotesForFile(filePath: string): ReviewNote[] {
+        return this.session?.notes.filter(
+            n => n.filePath === filePath && n.status === 'active'
+        ) || [];
+    }
+
+    /**
+     * Get all unresolved notes
+     */
+    getUnresolvedNotes(): ReviewNote[] {
+        return this.session?.notes.filter(n => n.status === 'active') || [];
+    }
+
+    /**
      * Update line numbers after document edit
      */
     updateLineMapping(
@@ -239,10 +311,14 @@ export class SessionManager extends EventEmitter {
 
         const filePath = uri.fsPath.replace(/\\/g, '/');
         const fileChanges = this.session.changes.filter(c => c.filePath === filePath);
+        const fileNotes = this.session.notes.filter(n => n.filePath === filePath && n.status === 'active');
 
-        if (fileChanges.length === 0) {
+        if (fileChanges.length === 0 && fileNotes.length === 0) {
             return;
         }
+
+        let changesUpdated = false;
+        let notesUpdated = false;
 
         for (const change of contentChanges) {
             const editStartLine = change.range.start.line + 1; // Convert to 1-indexed
@@ -251,21 +327,29 @@ export class SessionManager extends EventEmitter {
             const linesAdded = change.text.split('\n').length;
             const lineDelta = linesAdded - linesRemoved;
 
+            // Update Changes
             for (const fileChange of fileChanges) {
-                // Only update pending changes
-                if (fileChange.status !== 'pending') {
-                    continue;
-                }
-
-                // If change is after the edit, adjust line numbers
+                if (fileChange.status !== 'pending') continue;
                 if (fileChange.newLineStart > editEndLine) {
                     fileChange.newLineStart += lineDelta;
+                    changesUpdated = true;
+                }
+            }
+
+            // Update Notes
+            for (const note of fileNotes) {
+                if (note.line > editEndLine) {
+                    note.line += lineDelta;
+                    notesUpdated = true;
                 }
             }
         }
 
-        this.persistSession();
-        this.emit('lineMappingUpdated');
+        if (changesUpdated || notesUpdated) {
+            this.persistSession();
+            if (changesUpdated) this.emit('lineMappingUpdated');
+            if (notesUpdated) this.emit('notesUpdated');
+        }
     }
 
     /**
@@ -282,6 +366,7 @@ export class SessionManager extends EventEmitter {
             commitMessage: this.session.commitMessage,
             baseCommitHash: this.session.baseCommitHash,
             changes: this.session.changes,
+            notes: this.session.notes,
             currentIndex: this.session.currentIndex,
             startedAt: this.session.startedAt.toISOString()
         };
@@ -305,6 +390,7 @@ export class SessionManager extends EventEmitter {
             commitMessage: serialized.commitMessage,
             baseCommitHash: serialized.baseCommitHash,
             changes: serialized.changes,
+            notes: serialized.notes || [], // Backward compatibility
             currentIndex: serialized.currentIndex,
             startedAt: new Date(serialized.startedAt)
         };

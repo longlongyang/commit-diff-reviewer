@@ -18,9 +18,26 @@ export async function endSession(
         return;
     }
 
-    const stats = sessionManager.getSessionStats();
+    // Check for unresolved notes
+    const unresolvedNotes = sessionManager.getUnresolvedNotes();
+    if (unresolvedNotes.length > 0) {
+        const choice = await vscode.window.showWarningMessage(
+            `There are ${unresolvedNotes.length} unresolved notes.`,
+            'Resolve All & End',
+            'Cancel'
+        );
 
-    // Confirm if there are pending changes
+        if (choice === 'Cancel' || !choice) {
+            return; // Abort
+        }
+
+        if (choice === 'Resolve All & End') {
+            unresolvedNotes.forEach(n => sessionManager.resolveNote(n.id));
+        }
+    }
+
+    // Check for pending diff changes
+    const stats = sessionManager.getSessionStats();
     if (stats.pending > 0) {
         const choice = await vscode.window.showWarningMessage(
             `There are ${stats.pending} pending change(s) that haven't been reviewed. End session anyway?`,

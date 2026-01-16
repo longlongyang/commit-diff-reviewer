@@ -29,6 +29,8 @@ import {
 } from './commands/diffActions';
 import { endSession } from './commands/endSession';
 import { showStatusMenu } from './commands/statusBarActions';
+import { NoteDecorationProvider } from './providers/noteDecorationProvider';
+import { addNote, editNote, getNoteAtCursor, resolveNote } from './commands/noteActions';
 
 /**
  * Extension activation
@@ -42,46 +44,82 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Initialize providers
     const decorationProvider = new DecorationProvider(sessionManager);
-    const codeLensProvider = new DiffCodeLensProvider(sessionManager);
     const statusBarProvider = new StatusBarProvider(sessionManager);
+    const noteDecorationProvider = new NoteDecorationProvider(sessionManager, context);
+
+    // Check for session recovery
+    if (sessionManager.hasActiveSession()) {
+        vscode.window.showInformationMessage(
+            'A review session was in progress. Resume?',
+            'Yes', 'No'
+        ).then(selection => {
+            if (selection === 'No') {
+                sessionManager.endSession(); // Clear it
+            }
+            // If Yes, it's already loaded by SessionManager constructor
+        });
+    }
 
     // Register CodeLens provider
+    const codeLensProvider = new DiffCodeLensProvider(sessionManager);
     context.subscriptions.push(
-        vscode.languages.registerCodeLensProvider(
-            { scheme: 'file' },
-            codeLensProvider
-        )
+        vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider)
     );
 
     // Register commands
     context.subscriptions.push(
         // Main command - Select commit to review
-        vscode.commands.registerCommand(
-            'commitDiffReviewer.selectCommit',
-            () => selectCommit(gitService, sessionManager, decorationProvider)
-        ),
+        vscode.commands.registerCommand('commitDiffReviewer.selectCommit',
+            () => selectCommit(gitService, sessionManager, decorationProvider)),
 
         // Navigation commands
-        vscode.commands.registerCommand(
-            'commitDiffReviewer.nextChange',
-            () => nextChange(sessionManager, decorationProvider)
-        ),
-        vscode.commands.registerCommand(
-            'commitDiffReviewer.prevChange',
-            () => prevChange(sessionManager, decorationProvider)
-        ),
+        vscode.commands.registerCommand('commitDiffReviewer.nextChange',
+            () => nextChange(sessionManager, decorationProvider)),
 
-        // Accept/Reject commands (for current change)
-        vscode.commands.registerCommand(
-            'commitDiffReviewer.acceptChange',
-            () => acceptChange(sessionManager, decorationProvider)
-        ),
-        vscode.commands.registerCommand(
-            'commitDiffReviewer.rejectChange',
-            () => rejectChange(sessionManager, gitService, decorationProvider)
-        ),
+        vscode.commands.registerCommand('commitDiffReviewer.prevChange',
+            () => prevChange(sessionManager, decorationProvider)),
 
-        // Accept/Reject by ID (for CodeLens buttons)
+        // Accept/Reject commands (for current change, or by ID if provided)
+        vscode.commands.registerCommand('commitDiffReviewer.acceptChange',
+            (changeId?: string) => {
+                if (changeId) {
+                    acceptChangeById(sessionManager, decorationProvider, changeId);
+                } else {
+                    acceptChange(sessionManager, decorationProvider);
+                }
+            }),
+
+        vscode.commands.registerCommand('commitDiffReviewer.rejectChange',
+            (changeId?: string) => {
+                if (changeId) {
+                    rejectChangeById(sessionManager, gitService, decorationProvider, changeId);
+                } else {
+                    rejectChange(sessionManager, gitService, decorationProvider);
+                }
+            }),
+
+        // Batch operations
+        vscode.commands.registerCommand('commitDiffReviewer.acceptAll',
+            () => acceptAll(sessionManager, decorationProvider)),
+
+        vscode.commands.registerCommand('commitDiffReviewer.rejectAll',
+            () => rejectAll(sessionManager, gitService, decorationProvider)),
+
+        // Note Commands
+        vscode.commands.registerCommand('commitDiffReviewer.addNote', () =>
+            addNote(context, sessionManager, noteDecorationProvider)),
+
+        vscode.commands.registerCommand('commitDiffReviewer.editNote', () => {
+            const note = getNoteAtCursor(sessionManager);
+            if (note) editNote(context, sessionManager, note, noteDecorationProvider);
+        }),
+
+        vscode.commands.registerCommand('commitDiffReviewer.resolveNote', () => {
+            const note = getNoteAtCursor(sessionManager);
+            if (note) resolveNote(sessionManager, note, noteDecorationProvider);
+        }),
+
+        // Accept/Reject by ID (for CodeLens buttons) - these are the original explicit ones
         vscode.commands.registerCommand(
             'commitDiffReviewer.acceptChangeById',
             (changeId: string) => acceptChangeById(sessionManager, decorationProvider, changeId)

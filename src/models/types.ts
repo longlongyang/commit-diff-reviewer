@@ -59,6 +59,28 @@ export interface DiffHunk {
 /**
  * Review session state
  */
+/**
+ * Represents a user note attached to a file
+ */
+export interface ReviewNote {
+    id: string;
+    filePath: string;
+    line: number;           // 1-indexed line number where the note is displayed
+    content: string;        // Markdown content
+    status: 'active' | 'resolved';
+    createdAt: Date;
+    updatedAt: Date;
+    selectionRange?: {      // Optional: if attached to a specific selection
+        startLine: number;
+        startChar: number;
+        endLine: number;
+        endChar: number;
+    };
+}
+
+/**
+ * Review session state
+ */
 export interface ReviewSession {
     /** Hash of the commit being reviewed */
     commitHash: string;
@@ -70,6 +92,8 @@ export interface ReviewSession {
     baseCommitHash: string;
     /** All changes across all files */
     changes: DiffChange[];
+    /** User notes */
+    notes: ReviewNote[];
     /** Current change index */
     currentIndex: number;
     /** Session start time */
@@ -100,6 +124,8 @@ export interface CommitInfo {
 export interface ExtensionConfig {
     /** Maximum commits to show in selection list */
     maxCommitsInList: number;
+    /** Automatically jump to next pending change */
+    autoNavigation: boolean;
     /** Colors for highlighting */
     highlightColors: {
         added: string;
@@ -117,6 +143,7 @@ export interface SerializedSession {
     commitMessage: string;
     baseCommitHash: string;
     changes: DiffChange[];
+    notes: ReviewNote[];
     currentIndex: number;
     startedAt: string;
 }

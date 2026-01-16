@@ -1,8 +1,8 @@
 {
   "name": "commit-diff-reviewer",
   "displayName": "Commit Diff Reviewer",
-  "description": "Review and selectively accept/reject changes from any Git commit with GitHub Copilot-style UX",
-  "version": "0.1.2",
+  "description": "Interactive commit difference reviewer with accept/reject functionality",
+  "version": "0.2.0",
   "publisher": "yanglonglong",
   "icon": "images/icon.png",
   "repository": {
@@ -123,6 +123,11 @@
           "default": true,
           "description": "Automatically jump to the next pending change after accepting or rejecting a change."
         },
+        "commitDiffReviewer.deleteNoteOnResolve": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically delete notes when they are resolved."
+        },
         "commitDiffReviewer.highlightColors": {
           "type": "object",
           "default": {
@@ -133,6 +138,25 @@
           "description": "Colors for diff highlighting"
         }
       }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "commitDiffReviewer.addNote",
+          "group": "modification",
+          "when": "commitDiffReviewer.inSession && editorFocus"
+        },
+        {
+          "command": "commitDiffReviewer.editNote",
+          "group": "modification",
+          "when": "commitDiffReviewer.inSession && editorFocus"
+        },
+        {
+          "command": "commitDiffReviewer.resolveNote",
+          "group": "modification",
+          "when": "commitDiffReviewer.inSession && editorFocus"
+        }
+      ]
     }
   },
   "extensionDependencies": [
