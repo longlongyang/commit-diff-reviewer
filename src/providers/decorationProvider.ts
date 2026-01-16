@@ -226,16 +226,13 @@ export class DecorationProvider implements vscode.Disposable {
             renderOptions: {
                 before: {
                     contentText: deletedText,
-                    // Use CSS to ensure it renders as a block and preserves whitespace
-                    // VSCode extension allow some limited styling.
-                    // Important: `white-space: pre` to preserve formatting of standard code
-                    // `display: block` to force it to take up space (works in some contexts)
-                    // Note: decoration 'before' is technically inline-block by default.
+                    // Use CSS hacks via textDecoration to force block display and pre-formatting
+                    // 'none' closes the text-decoration property, allowing injection of other properties
+                    textDecoration: 'none; display: block; white-space: pre; width: 100%; box-sizing: border-box;',
 
-                    // We attempt to simulate block via newlines in contentText.
                     color: 'rgba(255, 255, 255, 0.5)', // Distinct text color
                     backgroundColor: 'rgba(200, 50, 50, 0.3)', // Red background for the block
-                    margin: '0 0 5px 0',
+                    margin: '0 0 0 0', // Reset margin
                     fontStyle: 'normal'
                 }
             }
