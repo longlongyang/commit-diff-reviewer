@@ -2,7 +2,7 @@
   "name": "commit-diff-reviewer",
   "displayName": "Commit Diff Reviewer",
   "description": "Review and selectively accept/reject changes from any Git commit with GitHub Copilot-style UX",
-  "version": "0.0.15",
+  "version": "0.1.1",
   "publisher": "yanglonglong",
   "icon": "images/icon.png",
   "repository": {
@@ -66,6 +66,11 @@
         "command": "commitDiffReviewer.rejectAll",
         "title": "Reject All Changes",
         "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.showStatusMenu",
+        "title": "Show Review Menu",
+        "icon": "$(list-unordered)"
       },
       {
         "command": "commitDiffReviewer.endSession",

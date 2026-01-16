@@ -28,6 +28,7 @@ import {
     rejectAll
 } from './commands/diffActions';
 import { endSession } from './commands/endSession';
+import { showStatusMenu } from './commands/statusBarActions';
 
 /**
  * Extension activation
@@ -104,6 +105,12 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand(
             'commitDiffReviewer.endSession',
             () => endSession(sessionManager, decorationProvider)
+        ),
+
+        // Status Bar interactive menu
+        vscode.commands.registerCommand(
+            'commitDiffReviewer.showStatusMenu',
+            () => showStatusMenu(sessionManager, gitService, decorationProvider)
         )
     );
 

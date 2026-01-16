@@ -118,8 +118,11 @@ export class StatusBarProvider implements vscode.Disposable {
             this.progressIndicator.backgroundColor = undefined;
         }
 
+        // Add interactive command
+        this.progressIndicator.command = 'commitDiffReviewer.showStatusMenu';
+
         this.progressIndicator.tooltip =
-            `Accepted: ${stats.accepted}\nRejected: ${stats.rejected}\nPending: ${stats.pending}`;
+            `Accepted: ${stats.accepted}\nRejected: ${stats.rejected}\nPending: ${stats.pending}\n\n$(mouse) Click to show Review Menu (Manage files or Batch actions)`;
 
         // Update button states
         const hasPending = stats.pending > 0;
