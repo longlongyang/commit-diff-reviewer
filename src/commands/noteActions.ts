@@ -15,7 +15,13 @@ export async function addNote(
     noteDecorationProvider: NoteDecorationProvider
 ): Promise<void> {
     if (!sessionManager.hasActiveSession()) {
-        vscode.window.showWarningMessage('No active review session.');
+        const result = await vscode.window.showWarningMessage(
+            'No active review session. Start one?',
+            'Start Session', 'Cancel'
+        );
+        if (result === 'Start Session') {
+            vscode.commands.executeCommand('commitDiffReviewer.selectCommit');
+        }
         return;
     }
 

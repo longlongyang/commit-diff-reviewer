@@ -2,7 +2,7 @@
   "name": "commit-diff-reviewer",
   "displayName": "Commit Diff Reviewer",
   "description": "Interactive commit difference reviewer with accept/reject functionality",
-  "version": "0.2.0",
+  "version": "0.2.2",
   "publisher": "yanglonglong",
   "icon": "images/icon.png",
   "repository": {
@@ -28,7 +28,12 @@
     "commit",
     "code review"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:commitDiffReviewer.selectCommit",
+    "onCommand:commitDiffReviewer.showStatusMenu",
+    "onCommand:commitDiffReviewer.addNote",
+    "onStartupFinished"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -75,6 +80,21 @@
       {
         "command": "commitDiffReviewer.endSession",
         "title": "End Review Session",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.addNote",
+        "title": "Add Review Note",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.editNote",
+        "title": "Edit Review Note",
+        "category": "Commit Diff Reviewer"
+      },
+      {
+        "command": "commitDiffReviewer.resolveNote",
+        "title": "Resolve Review Note",
         "category": "Commit Diff Reviewer"
       }
     ],
@@ -143,18 +163,18 @@
       "editor/context": [
         {
           "command": "commitDiffReviewer.addNote",
-          "group": "modification",
-          "when": "commitDiffReviewer.inSession && editorFocus"
+          "group": "modification@1",
+          "when": "editorTextFocus"
         },
         {
           "command": "commitDiffReviewer.editNote",
-          "group": "modification",
-          "when": "commitDiffReviewer.inSession && editorFocus"
+          "group": "modification@2",
+          "when": "commitDiffReviewer.inSession && editorTextFocus"
         },
         {
           "command": "commitDiffReviewer.resolveNote",
-          "group": "modification",
-          "when": "commitDiffReviewer.inSession && editorFocus"
+          "group": "modification@3",
+          "when": "commitDiffReviewer.inSession && editorTextFocus"
         }
       ]
     }

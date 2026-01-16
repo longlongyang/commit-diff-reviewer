@@ -129,15 +129,9 @@ export function activate(context: vscode.ExtensionContext): void {
             (changeId: string) => rejectChangeById(sessionManager, gitService, decorationProvider, changeId)
         ),
 
-        // Batch operations
-        vscode.commands.registerCommand(
-            'commitDiffReviewer.acceptAll',
-            () => acceptAll(sessionManager, decorationProvider)
-        ),
-        vscode.commands.registerCommand(
-            'commitDiffReviewer.rejectAll',
-            () => rejectAll(sessionManager, gitService, decorationProvider)
-        ),
+        // Batch operations - ALREADY REGISTERED ABOVE (lines 102-106)
+        // Removing duplicates to prevent warnings
+
 
         // End session
         vscode.commands.registerCommand(
