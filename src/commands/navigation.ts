@@ -152,3 +152,30 @@ export async function goToFirstChange(
         await navigateToChange(pending[0], decorationProvider);
     }
 }
+
+/**
+ * Reveal the current pending change (without advancing index)
+ * Used for auto-navigation after accepting/rejecting
+ */
+export async function revealCurrentChange(
+    sessionManager: SessionManager,
+    decorationProvider: DecorationProvider
+): Promise<void> {
+    if (!sessionManager.hasActiveSession()) {
+        return;
+    }
+
+    const change = sessionManager.getCurrentChange();
+    if (change) {
+        await navigateToChange(change, decorationProvider);
+    } else {
+        // If no current change, we might be done or index is weird
+        // Check if we have pending changes, if so, maybe index got reset to 0 by normalizeIndex
+        // In that case getCurrentChange SHOULD return something
+        // If it returns null, likely no pending changes left.
+        const stats = sessionManager.getSessionStats();
+        if (stats.pending === 0) {
+            // Auto-session end will likely trigger separately, but we can do nothing here
+        }
+    }
+}

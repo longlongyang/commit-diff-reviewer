@@ -141,6 +141,7 @@ export class SessionManager extends EventEmitter {
 
         change.status = 'accepted';
         this.persistSession();
+        this.normalizeIndex();
         this.emit('changeAccepted', change);
         this.emit('changeUpdated', change);
 
@@ -158,6 +159,7 @@ export class SessionManager extends EventEmitter {
 
         change.status = 'rejected';
         this.persistSession();
+        this.normalizeIndex();
         this.emit('changeRejected', change);
         this.emit('changeUpdated', change);
 
@@ -310,5 +312,23 @@ export class SessionManager extends EventEmitter {
         // Restore context for keybindings
         vscode.commands.executeCommand('setContext', 'commitDiffReviewer.inSession', true);
         this.emit('sessionRestored', this.session);
+    }
+
+    /**
+     * Normalize current index to ensure it is within bounds
+     * Call this after accepting/rejecting a change
+     */
+    private normalizeIndex(): void {
+        if (!this.session) return;
+
+        const pending = this.getPendingChanges();
+        if (pending.length === 0) {
+            return;
+        }
+
+        if (this.session.currentIndex >= pending.length) {
+            // Wrap to start if we fell off the end
+            this.session.currentIndex = 0;
+        }
     }
 }

@@ -50,7 +50,15 @@ export async function acceptChangeById(
     decorationProvider.refreshAllEditors();
 
     // Auto-end session if all changes are resolved
-    checkAndAutoEndSession(sessionManager, decorationProvider);
+    if (!checkAndAutoEndSession(sessionManager, decorationProvider)) {
+        // Auto-navigate if enabled
+        const config = vscode.workspace.getConfiguration('commitDiffReviewer');
+        if (config.get<boolean>('autoNavigation', true)) {
+            // Use navigation module to reveal next
+            const { revealCurrentChange } = require('./navigation');
+            revealCurrentChange(sessionManager, decorationProvider);
+        }
+    }
 }
 
 /**
@@ -101,7 +109,15 @@ export async function rejectChangeById(
         decorationProvider.refreshAllEditors();
 
         // Auto-end session if all changes are resolved
-        checkAndAutoEndSession(sessionManager, decorationProvider);
+        if (!checkAndAutoEndSession(sessionManager, decorationProvider)) {
+            // Auto-navigate if enabled
+            const config = vscode.workspace.getConfiguration('commitDiffReviewer');
+            if (config.get<boolean>('autoNavigation', true)) {
+                // Use navigation module to reveal next
+                const { revealCurrentChange } = require('./navigation');
+                revealCurrentChange(sessionManager, decorationProvider);
+            }
+        }
 
     } catch (error) {
         vscode.window.showErrorMessage(`Failed to reject change: ${error}`);
